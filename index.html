@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Llama.cpp als LAN‑Server auf dem OnePlus 9 (Android + Termux)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.5; padding: 1.5rem; max-width: 960px; margin: auto; }
+    pre, code { font-family: "Fira Code", Consolas, "Courier New", monospace; }
+    pre { background: #111827; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+    code { background: #f3f4f6; padding: 0.1rem 0.25rem; border-radius: 0.25rem; }
+    h1, h2, h3 { margin-top: 1.5rem; }
+    hr { margin: 2rem 0; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<h1>🤖 Llama.cpp als LAN‑Server auf dem OnePlus 9 (Android + Termux)</h1>
+
+<p>
+Dieses Projekt zeigt, wie du <strong>Llama.cpp</strong> direkt auf einem <strong>OnePlus 9</strong> mit
+<strong>Android + Termux</strong> als <strong>lokalen LLM‑Server im LAN</strong> betreibst – ohne Ollama und ohne Cloud.
+</p>
+
+<p>Getestet mit:</p>
+<ul>
+  <li>Gerät: OnePlus 9 (Snapdragon 888, Adreno 660)</li>
+  <li>OS: Android (Termux aus F‑Droid)</li>
+  <li>LLM: <code>Llama-3.2-1B-Instruct-Q4_K_M.gguf</code> (GGUF, Hugging Face)[web:187][web:189]</li>
+  <li>Server: <code>llama-server</code> (OpenAI‑kompatible API)</li>
+</ul>
+
+<hr />
+
+<h2>✨ Features</h2>
+
+<ul>
+  <li>✅ Llama.cpp nativ auf dem Smartphone</li>
+  <li>✅ OpenAI‑kompatible API (<code>/v1/chat/completions</code>)</li>
+  <li>✅ LAN‑Zugriff für PCs, Laptops, ESP32, andere Phones</li>
+  <li>✅ Start/Stop‑Skripte (inkl. GPU‑Offload)</li>
+  <li>✅ Läuft im Hintergrund mit <code>nohup</code> + <code>termux-wake-lock</code>[web:31][web:33][web:209]</li>
+</ul>
+
+<hr />
+
+<h2>⚙️ Voraussetzungen</h2>
+
+<ul>
+  <li>OnePlus 9 mit Android</li>
+  <li>Termux (empfohlen: F‑Droid‑Version)</li>
+  <li>WLAN/LAN, in dem andere Geräte das Handy erreichen können</li>
+  <li>Internetzugang, um das Modell einmalig von Hugging Face zu laden</li>
+</ul>
+
+<hr />
+
+<h2>📥 1. Termux vorbereiten</h2>
+
+<p>In Termux:</p>
+
+<pre><code>pkg update && pkg upgrade -y
+pkg install git cmake clang make python lld termux-api -y
+</code></pre>
+
+<p>Storage (optional, aber praktisch):</p>
+
+<pre><code>termux-setup-storage
+ls ~/storage/
+# sollte z.B. "downloads", "shared", ... anzeigen
+</code></pre>
+
+<p>[web:106][web:132]</p>
+
+<hr />
+
+<h2>📦 2. Llama.cpp klonen &amp; bauen</h2>
+
+<h3>2.1 Repository klonen</h3>
+
+<pre><code>cd ~
+rm -rf ~/llama.cpp
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+</code></pre>
+
+<p><em>(Optional kannst du auf einen bekannten stabilen Commit pinnen.)</em>[web:171]</p>
+
+<h3>2.2 Mit CMake bauen (CPU + Server)</h3>
+
+<pre><code>cmake -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLAMA_BUILD_TESTS=OFF \
+  -DLLAMA_BUILD_EXAMPLES=OFF \
+  -DLLAMA_BUILD_SERVER=ON
+
+cmake --build build --config Release -j4
+</code></pre>
+
+<h3>2.3 Build prüfen</h3>
+
+<pre><code>cd ~/llama.cpp/build/bin
+ls -la
+</code></pre>
+
+<p>Erwartete Binaries u. a.:</p>
+
+<pre><code>llama-cli
+llama-server
+llama-quantize
+libllama.so
+...
+</code></pre>
+
+<p>Kurztest:</p>
+
+<pre><code>./llama-cli --help
+./llama-server --help
+</code></pre>
+
+<p>[web:31][web:33]</p>
+
+<hr />
+
+<h2>🧠 3. Modell: Llama‑3.2‑1B‑Instruct‑Q4_K_M</h2>
+
+<p>Wir nutzen Hugging Face direkt im <code>llama-server</code>:</p>
+
+<ul>
+  <li>Repo: <code>bartowski/Llama-3.2-1B-Instruct-GGUF</code>[web:189]</li>
+  <li>Datei: <code>Llama-3.2-1B-Instruct-Q4_K_M.gguf</code>[web:187][web:195]</li>
+</ul>
+
+<p>Vorteil: kein manueller Download nötig – der Server lädt das Modell beim ersten Start automatisch und cached es lokal.</p>
+
+<hr />
+
+<h2>🚀 4. Llama‑Server starten (Testlauf)</h2>
+
+<p>In Termux:</p>
+
+<pre><code>cd ~/llama.cpp/build/bin
+
+./llama-server \
+  --hf-repo bartowski/Llama-3.2-1B-Instruct-GGUF \
+  --hf-file Llama-3.2-1B-Instruct-Q4_K_M.gguf \
+  --host 0.0.0.0 \
+  --port 8080 \
+  -c 4096 \
+  --ctx-size 4096 \
+  -ngl 0
+</code></pre>
+
+<ul>
+  <li><code>--hf-repo</code> / <code>--hf-file</code>: automatisch von Hugging Face laden[web:187][web:189]</li>
+  <li><code>--host 0.0.0.0</code>: macht den Server im LAN erreichbar[web:152][web:157]</li>
+  <li><code>-c 4096</code> / <code>--ctx-size 4096</code>: Kontextfenster 4k Tokens</li>
+  <li><code>-ngl 0</code>: CPU‑only (GPU‑Offload später)</li>
+</ul>
+
+<p>Beim ersten Start wird die GGUF‑Datei (~0,8 GB) heruntergeladen.</p>
+
+<hr />
+
+<h2>🌐 5. Zugriff im LAN</h2>
+
+<h3>5.1 IP des OnePlus 9 herausfinden</h3>
+
+<pre><code>ip addr show wlan0 | grep inet
+</code></pre>
+
+<p>Beispiel:</p>
+
+<pre><code>inet 192.168.178.18/24 brd 192.168.178.255 scope global wlan0
+</code></pre>
+
+<p>→ IP im LAN: <code>192.168.178.18</code>.</p>
+
+<h3>5.2 Browser-Zugriff</h3>
+
+<p>Auf einem anderen Gerät im selben WLAN:</p>
+
+<ul>
+  <li>Browser: <code>http://192.168.178.18:8080</code></li>
+</ul>
+
+<p>Du solltest eine einfache Web‑UI von <code>llama-server</code> sehen.[web:31][web:159]</p>
+
+<h3>5.3 OpenAI‑API per <code>curl</code></h3>
+
+<pre><code>curl -X POST http://192.168.178.18:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama",
+    "max_tokens": 256,
+    "messages": [
+      {"role": "user", "content": "Erkläre kurz den Unterschied zwischen RAM und ROM."}
+    ]
+  }'
+</code></pre>
+
+<p>Antwort kommt im OpenAI‑Format (<code>choices[0].message.content</code>). [web:153][web:159]</p>
+
+<hr />
+
+<h2>🔋 6. Llama‑Server im Hintergrund laufen lassen</h2>
+
+<p>Android beendet Termux im Hintergrund gerne. Um den Server stabil laufen zu lassen:</p>
+
+<h3>6.1 Wake‑Lock setzen</h3>
+
+<pre><code>termux-wake-lock
+</code></pre>
+
+<p>Damit verhindert Termux, dass das Gerät komplett schläft, während dein Server aktiv ist.[web:209]</p>
+
+<p>In Android zusätzlich:</p>
+<ul>
+  <li>Einstellungen → Apps → <strong>Termux</strong> → Akku → „nicht optimieren“ oder „uneingeschränkt erlauben“[web:202]</li>
+</ul>
+
+<hr />
+
+<h2>🧩 7. Start-/Stop‑Skripte (mit GPU‑Offload)</h2>
+
+<h3>7.1 Start-Skript <code>start-llama-server.sh</code></h3>
+
+<pre><code>cat > ~/start-llama-server.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+LLAMA_DIR="$HOME/llama.cpp/build/bin"
+LOG_FILE="$HOME/llama-server.log"
+
+HF_REPO="bartowski/Llama-3.2-1B-Instruct-GGUF"
+HF_FILE="Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+
+# Anzahl Layer auf GPU (Adreno). Bei Problemen Wert reduzieren oder 0 setzen.
+NGL=16
+
+# Wake-Lock setzen (falls verfügbar)
+termux-wake-lock 2>/dev/null || true
+
+# Alte Instanz beenden
+pkill -f "$LLAMA_DIR/llama-server" 2>/dev/null || true
+sleep 1
+
+cd "$LLAMA_DIR" || exit 1
+
+nohup ./llama-server \
+  --hf-repo "$HF_REPO" \
+  --hf-file "$HF_FILE" \
+  --host 0.0.0.0 \
+  --port 8080 \
+  -c 4096 \
+  --ctx-size 4096 \
+  -ngl "$NGL" \
+  >> "$LOG_FILE" 2>&1 &
+
+echo "llama-server mit GPU-Offload (ngl=$NGL) gestartet. Log: $LOG_FILE"
+EOF
+
+chmod +x ~/start-llama-server.sh
+</code></pre>
+
+<ul>
+  <li><code>NGL=16</code>: typischer Startwert für Adreno‑GPU (ca. 2–3× schneller bei 1B‑Modellen, sofern stabil)[web:24][web:172]</li>
+  <li>Bei Instabilität: <code>NGL</code> auf 8, 4 oder 0 setzen.</li>
+</ul>
+
+<h3>7.2 Stop-Skript <code>stop-llama-server.sh</code></h3>
+
+<pre><code>cat > ~/stop-llama-server.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+LLAMA_DIR="$HOME/llama.cpp/build/bin"
+
+# Server-Prozess beenden
+pkill -f "$LLAMA_DIR/llama-server" 2>/dev/null || true
+
+# Wake-Lock freigeben (optional)
+termux-wake-unlock 2>/dev/null || true
+
+echo "llama-server gestoppt (falls er lief)."
+EOF
+
+chmod +x ~/stop-llama-server.sh
+</code></pre>
+
+<h3>7.3 Nutzung</h3>
+
+<ul>
+  <li>Start/Restart:
+    <pre><code>~/start-llama-server.sh
+</code></pre>
+  </li>
+  <li>Stop:
+    <pre><code>~/stop-llama-server.sh
+</code></pre>
+  </li>
+  <li>Logs ansehen:
+    <pre><code>tail -n 50 ~/llama-server.log
+</code></pre>
+  </li>
+</ul>
+
+<hr />
+
+<h2>🧪 8. Häufige Fehler &amp; Fixes</h2>
+
+<h3>400: <code>exceed_context_size_error</code></h3>
+
+<p>Beispiel:</p>
+
+<pre><code>{"error":{"code":400,"message":"request (21496 tokens) exceeds the available context size (2048 tokens)..."}}
+</code></pre>
+
+<p><strong>Ursache:</strong> Client/Agent schickt sehr viel Historie (z. B. 20k Tokens), Server war evtl. mit <code>-c 2048</code> gestartet.[web:153]</p>
+
+<p><strong>Lösung:</strong></p>
+
+<ul>
+  <li>Server mit größerem Kontext starten (z. B. <code>-c 4096 --ctx-size 4096</code> wie im Skript).</li>
+  <li>Im Agent/Client:
+    <ul>
+      <li>Chat‑Historie begrenzen („nur letzte N Nachrichten“).</li>
+      <li>Maximale Prompt/Context‑Länge beschneiden (falls Option vorhanden).</li>
+    </ul>
+  </li>
+</ul>
+
+<hr />
+
+<h2>🧠 9. Agent-/Client‑Konfiguration (OpenAI‑kompatibel)</h2>
+
+<p>Für Tools wie OpenWebUI, eigene Python‑Agents etc.:</p>
+
+<ul>
+  <li><strong>Base URL:</strong> <code>http://192.168.178.18:8080</code></li>
+  <li><strong>Endpoint:</strong> <code>/v1/chat/completions</code></li>
+  <li><strong>Model Name:</strong> <code>llama</code> (Standard bei llama.cpp)</li>
+</ul>
+
+<p>Beispiel‑Konfiguration:</p>
+
+<pre><code>{
+  "base_url": "http://192.168.178.18:8080",
+  "endpoint": "/v1/chat/completions",
+  "model": "llama",
+  "max_tokens": 512
+}
+</code></pre>
+
+<p>[web:152][web:153][web:159]</p>
+
+<hr />
+
+<h2>🎓 10. Einsatzideen</h2>
+
+<ul>
+  <li><strong>Schule (Sek I, Technik/Informatik):</strong>
+    <ul>
+      <li>OnePlus 9 als „KI‑Server im Klassenzimmer“</li>
+      <li>Schüler verbinden sich per Browser oder Clients im Schul‑WLAN</li>
+    </ul>
+  </li>
+  <li><strong>IoT / ESP32 / Mikrocontroller:</strong>
+    <ul>
+      <li>ESP32 misst Daten und fragt den LLM‑Server nach Auswertung in natürlicher Sprache</li>
+    </ul>
+  </li>
+  <li><strong>Experimentierplattform:</strong>
+    <ul>
+      <li>Unterschiede zwischen 1B/3B‑Modellen testen</li>
+      <li>Einfluss von Kontextgröße (<code>-c</code>) und GPU‑Offload (<code>-ngl</code>) auf Speed und Qualität untersuchen[web:31][web:167]</li>
+    </ul>
+  </li>
+</ul>
+
+<hr />
+
+<h2>📜 Lizenz &amp; Hinweise</h2>
+
+<ul>
+  <li><strong>Llama.cpp:</strong> Lizenz siehe <a href="https://github.com/ggml-org/llama.cpp">Upstream‑Repo</a>.[web:171]</li>
+  <li><strong>Llama 3.2‑Modelle:</strong> Lizenzbedingungen von Meta / Hugging Face beachten.[web:199][web:187]</li>
+  <li>Für produktiven/unterrichtlichen Einsatz: Datenschutz &amp; Urheberrecht prüfen.</li>
+</ul>
+
+<p>Viel Spaß beim Basteln und Optimieren! Pull Requests mit Anpassungen für andere Geräte sind willkommen. 🚀</p>
+
+</body>
+</html>
