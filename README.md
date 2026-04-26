@@ -182,3 +182,5 @@ curl -X POST http://192.168.178.18:8080/v1/chat/completions \
   }'
 ```
 
+
+<a href="https://buymeacoffee.com/highfish"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"></a>
