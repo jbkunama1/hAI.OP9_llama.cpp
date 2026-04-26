@@ -1,3 +1,5 @@
+[![Buy me a coffee](https://cdn.buymeacoffee.com/buttons/default-orange.png)](https://www.buymeacoffee.com/highfish)
+
 # 🤖 Llama.cpp als LAN‑Server auf dem OnePlus 9 (Android + Termux)
 
 Dieses Projekt zeigt, wie du **Llama.cpp** direkt auf einem **OnePlus 9** mit **Android + Termux** als **lokalen LLM‑Server im LAN** betreibst – **ohne Ollama** und ohne Cloud.
