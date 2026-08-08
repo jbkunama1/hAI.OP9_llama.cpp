@@ -1,6 +1,11 @@
 [<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" width="120" height="28" alt="Buy me a coffee">](https://www.buymeacoffee.com/highfish)
 
 # 🤖 Llama.cpp als LAN‑Server auf dem OnePlus 9 (Android + Termux)
+[![Status](https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge)](https://github.com/jbkunama1/hAI.OP9_llama.cpp)
+[![Android](https://img.shields.io/badge/Android-Termux-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/jbkunama1/hAI.OP9_llama.cpp)
+[![LLM](https://img.shields.io/badge/LLM-llama.cpp-10a37f?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/jbkunama1/hAI.OP9_llama.cpp)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+
 
 
 
